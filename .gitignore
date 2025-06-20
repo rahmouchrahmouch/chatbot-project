@@ -10,7 +10,11 @@ frontend/.next/
 
 # Sécurité
 .env
+<<<<<<< Updated upstream
 
 # Fichiers système
 .DS_Store
 Thumbs.db
+=======
+node_modules
+>>>>>>> Stashed changes
