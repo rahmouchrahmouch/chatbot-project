@@ -1,11 +1,16 @@
-# Python
+# Backend Python
 backend/venv/
 __pycache__/
 *.pyc
 
-# Node/JS (si tu ajoutes plus tard)
+# Frontend Node/Next.js
 frontend/node_modules/
+frontend/.next/
 *.log
 
-# Général
+# Sécurité
 .env
+
+# Fichiers système
+.DS_Store
+Thumbs.db
