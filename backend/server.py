@@ -2,10 +2,11 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import sys  # import sys en haut
 
 # Initialiser FastAPI
 app = FastAPI()
@@ -13,7 +14,7 @@ app = FastAPI()
 # Permettre les requêtes CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -25,7 +26,12 @@ class QuestionRequest(BaseModel):
 
 # Charger et configurer les documents et le vectorstore
 def load_vectorstore():
-    pdf_path = "Tendances_Mode_2025.pdf"  # Assurez-vous que ce fichier existe dans votre dossier
+    pdf_path = r"C:\Users\rahma\Downloads\chatbot-project\data\pdfs\financial_management_basics.pdf"
+
+    print("Test d'existence fichier:", os.path.exists(pdf_path))
+    print("Chemin absolu:", os.path.abspath(pdf_path))
+    print("Python version:", sys.version)
+
     if not os.path.exists(pdf_path):
         raise FileNotFoundError(f"Le fichier {pdf_path} n'existe pas.")
 
@@ -53,9 +59,6 @@ def read_root():
 @app.post("/chat")
 async def chat(question_request: QuestionRequest):
     question = question_request.question
-    # Utiliser LangChain pour récupérer et générer une réponse
-    # Exemple simplifié
     docs = vectorstore.similarity_search(question)
     response_text = " ".join([doc.page_content for doc in docs])
-    response = {"response": f"Réponse basée sur le document: {response_text}"}
-    return response
+    return {"response": f"Réponse basée sur le document: {response_text}"}
