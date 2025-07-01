@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { BotIcon, UserIcon } from "lucide-react";
 
 type Message = {
   author: "user" | "bot";
@@ -13,34 +14,41 @@ export default function ChatBox() {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Scroll automatique vers le dernier message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Simuler réponse bot après envoi utilisateur
-  const sendMessage = (text: string) => {
+  const sendMessage = async (text: string) => {
     if (!text.trim()) return;
-    const userMsg = { author: "user", text };
+    const userMsg: Message = { author: "user", text };
     setMessages((msgs) => [...msgs, userMsg]);
     setInput("");
     setIsTyping(true);
 
-    // Simuler délai réponse IA
-    setTimeout(() => {
-      const botMsg = {
-        author: "bot",
-        text: "Merci pour votre message. Ceci est une réponse simulée.",
-      };
+    try {
+      const res = await fetch("http://localhost:8000/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+
+      const data = await res.json();
+      const botMsg: Message = { author: "bot", text: data.response };
       setMessages((msgs) => [...msgs, botMsg]);
+    } catch (err) {
+      setMessages((msgs) => [
+        ...msgs,
+        { author: "bot", text: "Erreur serveur. Veuillez réessayer." },
+      ]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
-  // Envoi via bouton ou Enter
   const handleSend = () => {
     sendMessage(input);
   };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -49,40 +57,59 @@ export default function ChatBox() {
   };
 
   return (
-    <div className="max-w-xl mx-auto mt-10 p-6 border rounded-3xl shadow-lg bg-white dark:bg-gray-800 flex flex-col h-[500px]">
-      <div className="flex-1 overflow-y-auto mb-4 space-y-3 px-2">
+    <div className="w-full max-w-2xl mx-auto mt-10 p-6 bg-white dark:bg-gray-900 rounded-2xl shadow-xl flex flex-col h-[600px] border border-gray-300 dark:border-gray-700">
+      <div className="flex-1 overflow-y-auto space-y-4 pr-2">
         {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`max-w-[75%] p-3 rounded-xl break-words ${
-              msg.author === "user"
-                ? "bg-blue-500 text-white self-end rounded-br-none"
-                : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200 self-start rounded-bl-none"
-            }`}
-          >
-            {msg.text}
+          <div key={idx} className={`flex ${msg.author === "user" ? "justify-end" : "justify-start"}`}>
+            <div className="flex items-start gap-2 max-w-[80%]">
+              {msg.author === "bot" && (
+                <div className="p-1 bg-gray-300 dark:bg-gray-700 rounded-full">
+                  <BotIcon className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                </div>
+              )}
+              <div
+                className={`rounded-xl px-4 py-2 text-sm ${
+                  msg.author === "user"
+                    ? "bg-blue-600 text-white rounded-br-none"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none"
+                }`}
+              >
+                {msg.text}
+              </div>
+              {msg.author === "user" && (
+                <div className="p-1 bg-blue-600 rounded-full">
+                  <UserIcon className="w-5 h-5 text-white" />
+                </div>
+              )}
+            </div>
           </div>
         ))}
+
         {isTyping && (
-          <div className="text-gray-500 italic self-start">Le bot écrit...</div>
+          <div className="flex items-center gap-2 text-sm italic text-gray-500 dark:text-gray-400 animate-pulse">
+            <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-75"></span>
+            <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-150"></span>
+            <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-300"></span>
+            <span>L'assistant écrit...</span>
+          </div>
         )}
+
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="flex gap-3">
+      <div className="mt-4 flex gap-2">
         <textarea
-          rows={1}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="flex-1 resize-none border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          placeholder="Tapez votre message ici..."
+          rows={1}
+          className="flex-1 resize-none rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Écris ton message..."
         />
         <button
           onClick={handleSend}
           disabled={!input.trim()}
-          className="bg-blue-600 disabled:bg-blue-300 text-white font-semibold px-6 rounded-xl hover:bg-blue-700 transition"
-          aria-label="Envoyer le message"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl transition disabled:bg-blue-300"
         >
           Envoyer
         </button>
