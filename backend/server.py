@@ -1,22 +1,33 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from rag_pipeline import ask_question
 
+# Initialisation de l'application FastAPI
 app = FastAPI()
 
-# Autoriser les requêtes depuis le frontend
+# 🔓 Autoriser les requêtes CORS depuis ton frontend (localhost:3000)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # autorise tout domaine, à restreindre ensuite si besoin
+    allow_origins=["http://localhost:3000"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# 📬 Modèle de la requête attendue
 class ChatRequest(BaseModel):
     message: str
 
-@app.post("/chat")
+# 📤 Modèle de la réponse
+class ChatResponse(BaseModel):
+    response: str
+
+# 📩 Endpoint POST /chat
+@app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
-    user_message = req.message
-    # Simule une réponse pour le moment
-    return {"response": f"Tu as dit : {user_message}. (réponse simulée)"}
+    user_msg = req.message
+
+   # Appel réel à la chaîne RAG
+    response = ask_question(user_msg)
+
+    return {"response": response}

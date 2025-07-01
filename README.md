@@ -11,3 +11,5 @@
 - Next.js 14+, Tailwind CSS
 - Installer dépendances : `npm install`
 - Lancer frontend : `npm run dev`
+# Ignorer les fichiers PDF lourds dans data/pdfs/
+data/pdfs/*.pdf
