@@ -9,14 +9,15 @@ frontend/.next/
 *.log
 frontend/styles/
 
-
 # Sécurité
 .env
-<<<<<<< Updated upstream
+
+# Corpus documentaire
+data/docs/
 
 # Fichiers système
 .DS_Store
 Thumbs.db
-=======
-node_modules
->>>>>>> Stashed changes
+
+# Node modules racine (si présent)
+node_modules/
