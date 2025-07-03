@@ -1,12 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from rag_pipeline import ask_question
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
-# Initialisation de l'application FastAPI
 app = FastAPI()
 
-# 🔓 Autoriser les requêtes CORS depuis ton frontend (localhost:3000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -14,20 +14,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 📬 Modèle de la requête attendue
+executor = ThreadPoolExecutor(max_workers=3)
+
 class ChatRequest(BaseModel):
     message: str
 
-# 📤 Modèle de la réponse
 class ChatResponse(BaseModel):
     response: str
 
-# 📩 Endpoint POST /chat
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
     user_msg = req.message
-
-   # Appel réel à la chaîne RAG
-    response = ask_question(user_msg)
-
+    loop = asyncio.get_event_loop()
+    try:
+        response = await loop.run_in_executor(executor, ask_question, user_msg)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     return {"response": response}
