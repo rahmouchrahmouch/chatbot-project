@@ -12,19 +12,17 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Pinecone as LangchainPinecone
 
-# Charger les variables d’environnement
+# 🛠️ Chargement des variables d'environnement
 load_dotenv()
-
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-PINECONE_ENVIRONMENT = os.getenv("PINECONE_ENVIRONMENT")  # ex: "us-west-2"
+PINECONE_ENVIRONMENT = os.getenv("PINECONE_ENVIRONMENT")
 PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
-
 DOCS_FOLDER = "C:/Users/rahma/Downloads/chatbot-project/data/docs"
 
-# Initialisation Pinecone (nouveau SDK)
+# 🔌 Initialisation Pinecone
 pc = Pinecone(api_key=PINECONE_API_KEY)
 
-# Créer l'index s'il n'existe pas
+# 🔧 Création de l’index si nécessaire
 if PINECONE_INDEX_NAME not in pc.list_indexes().names():
     pc.create_index(
         name=PINECONE_INDEX_NAME,
@@ -33,15 +31,21 @@ if PINECONE_INDEX_NAME not in pc.list_indexes().names():
         spec=ServerlessSpec(cloud="aws", region=PINECONE_ENVIRONMENT)
     )
 
-# Connexion à l'index Pinecone
+# 📡 Connexion à l'index
 index = pc.Index(PINECONE_INDEX_NAME)
 
-# Fonction pour charger les documents
+# 🔍 Fonction pour charger les documents d’un dossier
 def load_documents(folder_path):
     documents = []
+    supported_exts = {"pdf", "docx", "doc", "txt", "html", "md"}
+
     for filename in os.listdir(folder_path):
         filepath = os.path.join(folder_path, filename)
         ext = filename.lower().split('.')[-1]
+
+        if ext not in supported_exts:
+            print(f"⚠️ Format non supporté : {filename}")
+            continue
 
         try:
             if ext == "pdf":
@@ -54,29 +58,27 @@ def load_documents(folder_path):
                 loader = UnstructuredHTMLLoader(filepath)
             elif ext == "md":
                 loader = UnstructuredMarkdownLoader(filepath)
-            else:
-                print(f"⚠️ Format non supporté : {filename}")
-                continue
 
             docs = loader.load()
             documents.extend(docs)
-            print(f"📄 Chargé : {filename}")
+            print(f"📄 Document chargé : {filename} → {len(docs)} page(s)")
         except Exception as e:
             print(f"❌ Erreur avec {filename} : {e}")
     return documents
 
-# Fonction pour découper les documents
+# ✂️ Fonction de découpage intelligent
 def split_documents(documents):
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     return splitter.split_documents(documents)
 
-# Fonction principale
+# 🔁 Fonction principale d’ingestion
 def main():
+    print("📥 Démarrage de l'ingestion...")
     docs = load_documents(DOCS_FOLDER)
-    print(f"📄 Total documents chargés : {len(docs)}")
+    print(f"📦 Total documents bruts : {len(docs)}")
 
     docs_split = split_documents(docs)
-    print(f"🧩 Documents après découpage : {len(docs_split)}")
+    print(f"🧩 Chunks extraits : {len(docs_split)}")
 
     embedding = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
@@ -86,7 +88,8 @@ def main():
         index_name=PINECONE_INDEX_NAME,
         text_key="page_content"
     )
-    print("✅ Ingestion et indexation terminées.")
+
+    print("✅ Ingestion terminée. Documents indexés avec succès.")
 
 if __name__ == "__main__":
     main()
