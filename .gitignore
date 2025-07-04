@@ -20,4 +20,4 @@ data/docs/
 Thumbs.db
 
 # Node modules racine (si présent)
-node_modules/
+node_modules/.next/
