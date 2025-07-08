@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_community.vectorstores import Pinecone as LangchainPinecone
 from langchain.chains import RetrievalQA
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 
 # 📦 Variables d'environnement
 load_dotenv()
@@ -13,96 +13,50 @@ PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
 # 🔍 Embeddings
 embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-# 🧠 LLMs spécialisés
-llm_coach = ChatOpenAI(
-    openai_api_key=GROQ_API_KEY,
-    openai_api_base="https://api.groq.com/openai/v1",
-    model_name="llama3-8b-8192",
-    temperature=0.7
-)
-
-llm_legal = ChatOpenAI(
-    openai_api_key=GROQ_API_KEY,
-    openai_api_base="https://api.groq.com/openai/v1",
-    model_name="llama3-8b-8192",
-    temperature=0.3
-)
-
-llm_default = ChatOpenAI(
+# 💬 Modèle LLM
+llm = ChatOpenAI(
     openai_api_key=GROQ_API_KEY,
     openai_api_base="https://api.groq.com/openai/v1",
     model_name="llama3-8b-8192",
     temperature=0.5
 )
 
-# 🧠 Vectorstores (même index ici, mais extensible)
-vectorstore_coach = LangchainPinecone.from_existing_index(
-    index_name=PINECONE_INDEX_NAME,
-    embedding=embedding_model,
-    text_key="page_content"
-)
-
-vectorstore_legal = LangchainPinecone.from_existing_index(
-    index_name=PINECONE_INDEX_NAME,
-    embedding=embedding_model,
-    text_key="page_content"
-)
-
-vectorstore_default = LangchainPinecone.from_existing_index(
+# 🧠 Vectorstore
+vectorstore = LangchainPinecone.from_existing_index(
     index_name=PINECONE_INDEX_NAME,
     embedding=embedding_model,
     text_key="page_content"
 )
 
 # 🎯 Fonction principale
-def ask_question(query: str, user_id: str, role: str) -> dict:
-    print(f"📨 Requête de [{user_id}] avec rôle [{role}]")
+def ask_question(query: str, user_id: str) -> dict:
+    print(f"📨 Question de [{user_id}] : {query}")
+    retriever = vectorstore.as_retriever()
 
-    # 🔀 Sélection dynamique selon le rôle
-    if role == "coach":
-        llm = llm_coach
-        vectorstore = vectorstore_coach
-        prefix = "[Coach] "
-    elif role == "legal_advisor":
-        llm = llm_legal
-        vectorstore = vectorstore_legal
-        prefix = "[Conseiller juridique] "
-    else:
-        llm = llm_default
-        vectorstore = vectorstore_default
-        prefix = ""
-
-    full_query = prefix + query
-    retriever = vectorstore.as_retriever(search_kwargs={"include_metadata": True, "include_values": True})
     try:
-     results = retriever.get_relevant_documents(full_query)
+        results = retriever.invoke(query)
     except Exception as e:
-      print("❌ Erreur lors de l'appel à retriever.invoke():", e)
-      raise  # Pour que FastAPI affiche aussi une trace complète
+        print("❌ Erreur lors de la récupération :", e)
+        raise
 
-
-
-    score_threshold = 0.3
-    relevant_chunks = [doc for doc in results if doc.metadata.get("score", 0) >= score_threshold]
-
-    if not relevant_chunks:
+    if not results:
         return {
-            "query": full_query,
-            "result": "❌ Aucun document pertinent trouvé pour cette requête.",
+            "query": query,
+            "result": "❌ Aucun document pertinent trouvé.",
             "sources": [],
             "context": []
         }
 
-    # 📄 Extraire les sources et contextes
-    sources = list({doc.metadata.get("source", "inconnu") for doc in relevant_chunks[:3]})
-    context_chunks = [doc.page_content for doc in relevant_chunks[:3]]
+    # 📄 Extraction des sources et du contexte
+    sources = list({doc.metadata.get("source", "inconnu") for doc in results[:3]})
+    context_chunks = [doc.page_content for doc in results[:3]]
 
-    # 💬 Génération via LLM
-    rag_chain = RetrievalQA.from_chain_type(llm=llm, retriever=vectorstore.as_retriever())
-    response = rag_chain.invoke({"query": full_query})
+    # 💡 Génération de la réponse
+    rag_chain = RetrievalQA.from_chain_type(llm=llm, retriever=retriever)
+    response = rag_chain.invoke({"query": query})
 
     return {
-        "query": full_query,
+        "query": query,
         "result": response['result'] if isinstance(response, dict) else response,
         "sources": sources,
         "context": context_chunks

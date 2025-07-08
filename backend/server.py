@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List
 from rag_pipeline import ask_question
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -17,13 +17,12 @@ app.add_middleware(
 
 executor = ThreadPoolExecutor(max_workers=3)
 
-# ✅ Requête entrante avec champ role optionnel (défaut "default")
+# 📨 Données entrantes
 class ChatRequest(BaseModel):
     message: str
-    userId: str  # pour identifier l'utilisateur
-    role: Optional[str] = "default"  # nouveau champ role, optionnel
+    userId: str
 
-# ✅ Réponse sortante avec liste de sources
+# 📦 Données sortantes
 class ChatResponse(BaseModel):
     response: str
     sources: List[str]
@@ -32,14 +31,11 @@ class ChatResponse(BaseModel):
 async def chat_endpoint(req: ChatRequest):
     user_msg = req.message
     user_id = req.userId
-    user_role = req.role
 
     loop = asyncio.get_event_loop()
 
     try:
-        # Passe le role en argument à ta fonction ask_question
-        result = await loop.run_in_executor(executor, ask_question, user_msg, user_id, user_role)
-
+        result = await loop.run_in_executor(executor, ask_question, user_msg, user_id)
         print("✅ Résultat brut reçu :", result)
 
         return {
@@ -48,4 +44,5 @@ async def chat_endpoint(req: ChatRequest):
         }
 
     except Exception as e:
+        print("❌ Erreur serveur :", e)
         raise HTTPException(status_code=500, detail=str(e))
