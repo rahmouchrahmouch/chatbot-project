@@ -7,14 +7,14 @@ import TypingIndicator from "./TypingIndicator";
 import ChatInput from "./ChatInput";
 import { saveAs } from "file-saver";
 
-// ✅ Type Message
+// Type Message
 type Message = {
   author: "user" | "bot";
   text: string;
   sources?: string[];
 };
 
-// ✅ Liste des modèles
+// Liste des modèles
 const MODELS = [
   "llama-3.1-8b-instant",
   "llama-3.3-70b-versatile",
@@ -33,6 +33,7 @@ export default function ChatBox() {
   const [showHistory, setShowHistory] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState(MODELS[0]);
+  const [requestCount, setRequestCount] = useState<number>(0); // compteur local
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -45,6 +46,7 @@ export default function ChatBox() {
     }
     setUserId(storedId);
 
+    // Charger historique
     const historyKey = `chatHistory_${storedId}`;
     try {
       const storedHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
@@ -53,11 +55,20 @@ export default function ChatBox() {
     } catch (err) {
       console.error("Erreur de chargement historique :", err);
     }
+
+    // Charger compteur depuis localStorage
+    const savedCount = localStorage.getItem("requestCount");
+    if (savedCount) setRequestCount(parseInt(savedCount, 10));
   }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    // Sauvegarder compteur dans localStorage
+    localStorage.setItem("requestCount", requestCount.toString());
+  }, [requestCount]);
 
   const saveChatHistory = (newHistory: Message[]) => {
     if (!userId) return;
@@ -102,6 +113,10 @@ export default function ChatBox() {
       if (!res.ok) throw new Error("Erreur serveur");
 
       const data = await res.json();
+
+      // Incrémenter compteur local à chaque requête réussie
+      setRequestCount((prev) => prev + 1);
+
       const botMsg: Message = {
         author: "bot",
         text: data.response,
@@ -199,6 +214,11 @@ export default function ChatBox() {
         ))}
         {isTyping && <TypingIndicator />}
         <div ref={messagesEndRef} />
+      </div>
+
+      {/* Affichage compteur requêtes */}
+      <div className="text-sm text-gray-500 dark:text-gray-400 mt-2 text-center">
+        Nombre de requêtes effectuées : {requestCount}
       </div>
 
       {/* Entrée utilisateur */}
